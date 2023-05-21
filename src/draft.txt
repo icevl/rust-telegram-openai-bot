@@ -1,0 +1,45 @@
+use reqwest::Error;
+use std::thread;
+
+mod product;
+mod redis;
+
+fn main() {
+    let mut handles = vec![];
+
+    for i in 0..5 {
+        let handle = thread::spawn(move || {
+            println!("Thread {} runing", i);
+            http_request();
+
+            redis::set_key("hello", 123);
+
+            let test = redis::get_key("hello");
+
+            println!("test: {:?}", test);
+        
+            println!("Thread {} Finished", i);
+        });
+
+        handles.push(handle);
+    }
+
+    for handle in handles {
+        handle.join().unwrap();
+    }
+}
+
+#[tokio::main]
+async fn http_request() -> Result<(), Error> {
+    let url = "https://jsonplaceholder.typicode.com/todos/1".to_string();
+    match product::get_product(url).await {
+        Ok(product) => {
+            println!("Product title: {:#?}", product.title);
+        }
+        Err(error) => {
+            eprintln!("Ошибка получения продукта: {}", error);
+        }
+    }
+
+    Ok(())
+}
