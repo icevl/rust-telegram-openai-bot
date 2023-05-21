@@ -1,5 +1,6 @@
 use crate::gpt::MyGPT;
 use dotenv::dotenv;
+use log::LevelFilter;
 use teloxide::prelude::*;
 
 mod gpt;
@@ -42,7 +43,10 @@ async fn on_receive(bot: Bot, msg: Message) {
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-    pretty_env_logger::init();
+    pretty_env_logger::formatted_builder()
+        .filter_level(LevelFilter::Info)
+        .init();
+
     log::info!("Starting...");
 
     let bot_token = std::env::var("TELEGRAM_TOKEN").expect("TELEGRAM_TOKEN must be set.");
