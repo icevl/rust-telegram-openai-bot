@@ -1,12 +1,11 @@
+use crate::gpt::MyGPT;
 use dotenv::dotenv;
 use teloxide::prelude::*;
-use crate::gpt::MyGPT;
 
 mod gpt;
 mod redis;
 
 lazy_static::lazy_static! {
-
     static ref GPT: MyGPT = {
         let api_key = std::env::var("GPT_KEY").expect("GPT_KEY must be set.");
         MyGPT::new(&api_key)
@@ -14,36 +13,23 @@ lazy_static::lazy_static! {
 }
 
 async fn on_receive(bot: Bot, msg: Message) {
-    let is_new_conversation = GPT.conversation_exists(msg.chat.id);
-    if !is_new_conversation {
+    let is_conversation_exists = GPT.conversation_exists(msg.chat.id);
+    if !is_conversation_exists {
         GPT.new_chat_conversation(msg.chat.id);
-        println!("New conversation created for chat id: {}", msg.chat.id);
+        log::info!("New conversation created for chat id: {}", msg.chat.id);
     }
-
-    // let redis_key = format!("chat_id_{}", msg.chat.id).to_string();
-
-    // match redis::get_key(&redis_key) {
-    //     Ok(value) => {
-    //         println!("Redis key value {}: {}", redis_key, value);
-    //     }
-    //     Err(err) => {
-    //         eprintln!("Redis key error {}: {}", redis_key, err);
-    //     }
-    // }
-
-    // println!("redis: {}", conversation);
 
     let received = msg.text().unwrap();
     let result = GPT.send_msg(&received).await;
 
     match result {
         Ok(content) => {
-            println!("Received content: {}", content);
+            log::info!("Received content: {}", content);
             let send_result = bot.send_message(msg.chat.id, content).await;
             match send_result {
                 Ok(_) => {}
                 Err(err) => {
-                    eprintln!("Error: {}", err);
+                    log::info!("Error: {}", err);
                 }
             }
         }

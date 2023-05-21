@@ -43,3 +43,19 @@ async fn http_request() -> Result<(), Error> {
 
     Ok(())
 }
+
+
+
+
+   // let redis_key = format!("chat_id_{}", msg.chat.id).to_string();
+
+    // match redis::get_key(&redis_key) {
+    //     Ok(value) => {
+    //         println!("Redis key value {}: {}", redis_key, value);
+    //     }
+    //     Err(err) => {
+    //         eprintln!("Redis key error {}: {}", redis_key, err);
+    //     }
+    // }
+
+    // println!("redis: {}", conversation);
