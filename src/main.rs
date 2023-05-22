@@ -1,8 +1,11 @@
+use crate::db::DB;
 use crate::gpt::MyGPT;
+use chatgpt::types::Role;
 use dotenv::dotenv;
 use log::LevelFilter;
 use teloxide::prelude::*;
 
+mod db;
 mod gpt;
 mod redis;
 
@@ -14,6 +17,8 @@ lazy_static::lazy_static! {
 }
 
 async fn on_receive(bot: Bot, msg: Message) {
+    let db = DB::new();
+
     let is_conversation_exists = GPT.conversation_exists(msg.chat.id).await;
     if !is_conversation_exists {
         GPT.new_chat_conversation(msg.chat.id).await;
@@ -23,10 +28,16 @@ async fn on_receive(bot: Bot, msg: Message) {
     let received = msg.text().unwrap();
     let result = GPT.send_msg(msg.chat.id, &received).await;
 
+    log::info!("New message received {}", received);
+
+    db.save_message(msg.chat.id, Role::User, received.to_string());
+
     match result {
         Ok(content) => {
             log::info!("Received content: {}", content);
+            db.save_message(msg.chat.id, Role::Assistant, content.to_string());
             let send_result = bot.send_message(msg.chat.id, content).await;
+
             match send_result {
                 Ok(_) => {}
                 Err(err) => {
@@ -46,6 +57,9 @@ async fn main() {
     pretty_env_logger::formatted_builder()
         .filter_level(LevelFilter::Info)
         .init();
+
+    let db = DB::new();
+    db.init_migration().await;
 
     log::info!("Starting...");
 

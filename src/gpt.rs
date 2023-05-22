@@ -1,3 +1,4 @@
+use crate::db::DB;
 use chatgpt::prelude::{ChatGPT, Conversation};
 use futures::lock::Mutex;
 use std::collections::HashMap;
@@ -19,8 +20,20 @@ impl MyGPT {
     }
 
     pub async fn new_chat_conversation(&self, chat_id: ChatId) {
+        let db = DB::new();
         let conversation: Conversation = self.client.new_conversation();
+
+        // let history = db.get_message(chat_id);
+        // match  history {
+        //     Ok(hist) => { conversation.se }
+        // }
+
+        //
+
+        //self.client.send_history()
+
         let mutex_conversation = Arc::new(Mutex::new(conversation));
+
         self.chat_conversations
             .lock()
             .await
