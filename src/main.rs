@@ -14,14 +14,14 @@ lazy_static::lazy_static! {
 }
 
 async fn on_receive(bot: Bot, msg: Message) {
-    let is_conversation_exists = GPT.conversation_exists(msg.chat.id);
+    let is_conversation_exists = GPT.conversation_exists(msg.chat.id).await;
     if !is_conversation_exists {
-        GPT.new_chat_conversation(msg.chat.id);
+        GPT.new_chat_conversation(msg.chat.id).await;
         log::info!("New conversation created for chat id: {}", msg.chat.id);
     }
 
     let received = msg.text().unwrap();
-    let result = GPT.send_msg(&received).await;
+    let result = GPT.send_msg(msg.chat.id, &received).await;
 
     match result {
         Ok(content) => {
@@ -52,7 +52,7 @@ async fn main() {
     let bot_token = std::env::var("TELEGRAM_TOKEN").expect("TELEGRAM_TOKEN must be set.");
     let bot = Bot::new(bot_token);
 
-    teloxide::repl(bot, move |bot: Bot, msg: Message| async move {
+    teloxide::repl(bot, |bot: Bot, msg: Message| async move {
         on_receive(bot, msg).await;
         Ok(())
     })
