@@ -1,7 +1,7 @@
 use crate::gpt::MyGPT;
 use dotenv::dotenv;
 use log::LevelFilter;
-use teloxide::prelude::*;
+use teloxide::{prelude::*, types::ChatAction};
 
 mod gpt;
 mod redis;
@@ -18,6 +18,12 @@ async fn on_receive(bot: Bot, msg: Message) {
     if !is_conversation_exists {
         GPT.new_chat_conversation(msg.chat.id).await;
         log::info!("New conversation created for chat id: {}", msg.chat.id);
+    }
+
+    let action = bot.send_chat_action(msg.chat.id, ChatAction::Typing).await;
+    match action {
+        Ok(_) => {}
+        Err(_) => {}
     }
 
     let received = msg.text().unwrap();
