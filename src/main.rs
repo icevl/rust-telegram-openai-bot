@@ -67,7 +67,7 @@ async fn main() {
     let bot_token = std::env::var("TELEGRAM_TOKEN").expect("TELEGRAM_TOKEN must be set.");
     let bot = Bot::new(bot_token);
 
-    teloxide::repl(bot, move |bot: Bot, msg: Message| async move {
+    teloxide::repl(bot, |bot: Bot, msg: Message| async move {
         on_receive(bot, msg).await;
         Ok(())
     })
