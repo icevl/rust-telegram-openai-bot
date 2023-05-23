@@ -1,4 +1,4 @@
-use crate::db::DB;
+use crate::db::{User, DB};
 use chatgpt::prelude::{ChatGPT, ChatGPTEngine, ModelConfigurationBuilder};
 use chatgpt::types::Role;
 use std::error::Error;
@@ -26,6 +26,7 @@ impl MyGPT {
     pub async fn send_msg(
         &self,
         chat_id: ChatId,
+        user: User,
         message: &str,
     ) -> Result<String, Box<dyn Error + Send + Sync>> {
         let db = DB::new();
@@ -34,6 +35,7 @@ impl MyGPT {
 
         let history = db.get_message(chat_id).unwrap();
         print!("H: {:#?}", history);
+        print!("U: {:#?}", user);
 
         let gpt_request = self.client.send_history(&history).await;
 
