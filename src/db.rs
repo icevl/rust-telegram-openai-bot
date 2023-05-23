@@ -17,6 +17,13 @@ struct LoadedMessage {
     role: Role,
 }
 
+#[derive(Clone, Debug)]
+pub struct User {
+    pub user_name: String,
+    pub contact_name: String,
+    pub contact_form: String,
+}
+
 impl DB {
     pub fn new() -> Self {
         DB {
@@ -24,7 +31,7 @@ impl DB {
         }
     }
 
-    pub async fn init_migration(&self) {
+    pub async fn history_migration(&self) {
         let result = self.connection.execute(
             "CREATE TABLE chat_history (
                 id          INTEGER PRIMARY KEY,
@@ -38,10 +45,31 @@ impl DB {
 
         match result {
             Ok(_) => {
-                log::info!("Database successfully created")
+                log::info!("Table [history] successfully created")
             }
             Err(err) => {
-                log::info!("Error in database creation: {}", err)
+                log::info!("Error in [history] creation: {}", err)
+            }
+        }
+    }
+
+    pub async fn users_migration(&self) {
+        let result = self.connection.execute(
+            "CREATE TABLE users (
+                id              INTEGER PRIMARY KEY,
+                username        VARCHAR(100) NOT NULL,
+                contact_name    VARCHAR(100) NOT NULL,
+                contact_form    VARCHAR(20) NOT NULL
+            )",
+            (),
+        );
+
+        match result {
+            Ok(_) => {
+                log::info!("Table [users] successfully created")
+            }
+            Err(err) => {
+                log::info!("Error in [users] creation: {}", err)
             }
         }
     }
@@ -53,10 +81,12 @@ impl DB {
             role: DB::role_to_string(role),
         };
 
-        self.connection.execute(
-            "INSERT INTO chat_history (chat_id, message, role) VALUES (?1, ?2, ?3)",
-            (&msg_data.chat_id, &msg_data.message, &msg_data.role),
-        ).unwrap();
+        self.connection
+            .execute(
+                "INSERT INTO chat_history (chat_id, message, role) VALUES (?1, ?2, ?3)",
+                (&msg_data.chat_id, &msg_data.message, &msg_data.role),
+            )
+            .unwrap();
     }
 
     pub fn get_message(&self, chat_id: ChatId) -> Result<Vec<ChatMessage>, rusqlite::Error> {
@@ -85,6 +115,36 @@ impl DB {
             });
 
         return chat_messages;
+    }
+
+    pub fn get_users(&self) -> Result<Vec<User>, rusqlite::Error> {
+        let mut stmt = self
+            .connection
+            .prepare("SELECT username, contact_name, contact_form FROM users")?;
+
+        let users_iter = stmt
+            .query_map([], |row| {
+                Ok(User {
+                    user_name: row.get(0)?,
+                    contact_name: row.get(1)?,
+                    contact_form: row.get(2)?,
+                })
+            })
+            .unwrap();
+
+        let users: Result<Vec<User>, rusqlite::Error> =
+            users_iter.collect::<Result<Vec<_>, _>>().map(|users| {
+                users
+                    .into_iter()
+                    .map(|row| User {
+                        user_name: row.user_name,
+                        contact_name: row.contact_name,
+                        contact_form: row.contact_form,
+                    })
+                    .collect()
+            });
+
+        return users;
     }
 
     fn role_to_string(role: Role) -> String {
