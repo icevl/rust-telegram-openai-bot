@@ -1,8 +1,10 @@
+use crate::db::DB;
 use crate::gpt::MyGPT;
 use dotenv::dotenv;
 use log::LevelFilter;
 use teloxide::{prelude::*, types::ChatAction};
 
+mod db;
 mod gpt;
 mod redis;
 
@@ -14,12 +16,6 @@ lazy_static::lazy_static! {
 }
 
 async fn on_receive(bot: Bot, msg: Message) {
-    let is_conversation_exists = GPT.conversation_exists(msg.chat.id).await;
-    if !is_conversation_exists {
-        GPT.new_chat_conversation(msg.chat.id).await;
-        log::info!("New conversation created for chat id: {}", msg.chat.id);
-    }
-
     let action = bot.send_chat_action(msg.chat.id, ChatAction::Typing).await;
     match action {
         Ok(_) => {}
@@ -29,10 +25,13 @@ async fn on_receive(bot: Bot, msg: Message) {
     let received = msg.text().unwrap();
     let result = GPT.send_msg(msg.chat.id, &received).await;
 
+    log::info!("New message received {}", received);
+
     match result {
         Ok(content) => {
             log::info!("Received content: {}", content);
             let send_result = bot.send_message(msg.chat.id, content).await;
+
             match send_result {
                 Ok(_) => {}
                 Err(err) => {
@@ -41,6 +40,13 @@ async fn on_receive(bot: Bot, msg: Message) {
             }
         }
         Err(err) => {
+            let error_msg = bot
+                .send_message(msg.chat.id, "I broke down. I feel bad")
+                .await;
+            match error_msg {
+                Ok(_) => {}
+                Err(_) => {}
+            }
             eprintln!("Error: {}", err);
         }
     }
@@ -52,6 +58,9 @@ async fn main() {
     pretty_env_logger::formatted_builder()
         .filter_level(LevelFilter::Info)
         .init();
+
+    let db = DB::new();
+    db.init_migration().await;
 
     log::info!("Starting...");
 
