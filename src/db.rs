@@ -53,24 +53,22 @@ impl DB {
             role: DB::role_to_string(role),
         };
 
-        self.connection
-            .execute(
-                "INSERT INTO chat_history (chat_id, message, role) VALUES (?1, ?2, ?3)",
-                (&msg_data.chat_id, &msg_data.message, &msg_data.role),
-            )
-            .unwrap();
+        self.connection.execute(
+            "INSERT INTO chat_history (chat_id, message, role) VALUES (?1, ?2, ?3)",
+            (&msg_data.chat_id, &msg_data.message, &msg_data.role),
+        ).unwrap();
     }
 
     pub fn get_message(&self, chat_id: ChatId) -> Result<Vec<ChatMessage>, rusqlite::Error> {
-        let mut stmt = self
-            .connection
-            .prepare("SELECT message, role FROM chat_history")
-            .unwrap();
+        let mut stmt = self.connection.prepare(
+            "SELECT message FROM chat_history WHERE chat_id = ? ORDER BY created_at ASC LIMIT 100",
+        )?;
+
         let message_iter = stmt
-            .query_map([], |row| {
+            .query_map([chat_id.to_string()], |row| {
                 Ok(LoadedMessage {
                     content: row.get(0)?,
-                    role: DB::string_to_role(row.get::<_, String>(1)?.as_str()),
+                    role: Role::User,
                 })
             })
             .unwrap();
@@ -87,7 +85,6 @@ impl DB {
             });
 
         return chat_messages;
-        //chat_messages.map_err(Box::new)
     }
 
     fn role_to_string(role: Role) -> String {
