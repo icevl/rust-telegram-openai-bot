@@ -1530,7 +1530,6 @@ version = "0.1.0"
 dependencies = [
  "chatgpt_rs",
  "dotenv",
- "futures",
  "lazy_static",
  "log",
  "pretty_env_logger",
