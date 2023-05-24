@@ -5,6 +5,7 @@ use db::User;
 use dotenv::dotenv;
 use log::LevelFilter;
 use teloxide::{prelude::*, types::ChatAction};
+use tokio_interval::{clear_timer, set_interval};
 
 mod db;
 mod gpt;
@@ -22,21 +23,34 @@ lazy_static::lazy_static! {
 }
 
 #[allow(unused_must_use)]
+async fn send_typing_action(bot: Bot, chat_id: ChatId) {
+    bot.send_chat_action(chat_id, ChatAction::Typing).await;
+}
+
+#[allow(unused_must_use)]
 async fn on_receive(state: State, bot: Bot, msg: Message) {
     let user_request = find_user_by_username(&state, msg.chat.username().unwrap());
 
+    let b = bot.clone();
+    let typing_interval = set_interval!(
+        move || {
+            tokio::spawn(send_typing_action(b.clone(), msg.chat.id));
+        },
+        3000
+    );
+
     if let Some(user) = user_request {
         proccess_message(user.clone(), bot, msg).await;
+        clear_timer!(typing_interval)
     } else {
         bot.send_message(msg.chat.id, "Access denied").await;
+        clear_timer!(typing_interval)
     }
 }
 
 #[allow(unused_must_use)]
 async fn proccess_message(user: User, bot: Bot, msg: Message) {
     let db = DB::new();
-
-    bot.send_chat_action(msg.chat.id, ChatAction::Typing).await;
 
     let cloned_user = user.clone();
     let message = msg.text().unwrap();
@@ -70,7 +84,6 @@ async fn main() {
         .init();
 
     let db = DB::new();
-
 
     log::info!("Starting...");
 
