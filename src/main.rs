@@ -7,7 +7,6 @@ use teloxide::{prelude::*, types::ChatAction};
 
 mod db;
 mod gpt;
-mod redis;
 
 #[derive(Clone, Debug)]
 struct State {
@@ -36,14 +35,15 @@ async fn on_receive(state: State, bot: Bot, msg: Message) {
 async fn proccess_message(user: User, bot: Bot, msg: Message) {
     bot.send_chat_action(msg.chat.id, ChatAction::Typing).await;
 
+    let cloned_user = user.clone();
     let message = msg.text().unwrap();
     let result = GPT.send_msg(msg.chat.id, user, &message).await;
 
-    log::info!("New message received {}", message);
+    log::info!("[{}]: {}", cloned_user.user_name, message);
 
     match result {
         Ok(content) => {
-            log::info!("Received content: {}", content);
+            log::info!("[bot]: {}", content);
             bot.send_message(msg.chat.id, content).await;
         }
         Err(err) => {

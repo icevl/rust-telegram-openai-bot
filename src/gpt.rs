@@ -1,12 +1,14 @@
 use crate::db::{User, DB};
 use chatgpt::prelude::{ChatGPT, ChatGPTEngine, ModelConfigurationBuilder};
-use chatgpt::types::Role;
+use chatgpt::types::{ChatMessage, Role};
 use std::error::Error;
 use teloxide::prelude::ChatId;
 
 pub struct MyGPT {
     client: ChatGPT,
 }
+
+static BOT_NAME: &str = "Tereshkova";
 
 impl MyGPT {
     pub fn new(api_key: &str) -> Self {
@@ -33,11 +35,10 @@ impl MyGPT {
 
         db.save_message(chat_id, Role::User, message.to_string());
 
-        let history = db.get_message(chat_id).unwrap();
-        print!("H: {:#?}", history);
-        print!("U: {:#?}", user);
+        let history = db.get_history(chat_id).unwrap();
+        let enhanced_history = MyGPT::build_history(history, &user);
 
-        let gpt_request = self.client.send_history(&history).await;
+        let gpt_request = self.client.send_history(&enhanced_history).await;
 
         match gpt_request {
             Ok(response) => {
@@ -52,5 +53,19 @@ impl MyGPT {
                 Err("An error occurred ".into())
             }
         }
+    }
+
+    fn build_history(history: Vec<ChatMessage>, user: &User) -> Vec<ChatMessage> {
+        let mut updated_history = Vec::new();
+        let user_name = user.contact_name.clone();
+        let user_form = user.contact_form.clone();
+
+        updated_history.push(ChatMessage {
+            content: format!("Please, call me: '{}' treat me like '{}', and write from the feminine gender and in an affectionate form. Also your name is: {}", user_name, user_form, BOT_NAME)
+                .to_string(),
+            role: Role::User,
+        });
+        updated_history.extend(history);
+        updated_history
     }
 }
