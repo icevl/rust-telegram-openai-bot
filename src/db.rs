@@ -98,7 +98,7 @@ impl DB {
             .query_map([chat_id.to_string()], |row| {
                 Ok(LoadedMessage {
                     content: row.get(0)?,
-                    role: DB::string_to_role(row.get::<_,String>(1)),
+                    role: DB::string_to_role(row.get::<_, String>(1)?.as_str()),
                 })
             })
             .unwrap();
