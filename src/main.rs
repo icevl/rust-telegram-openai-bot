@@ -1,5 +1,6 @@
 use crate::db::DB;
 use crate::gpt::MyGPT;
+use chatgpt::types::Role;
 use db::User;
 use dotenv::dotenv;
 use log::LevelFilter;
@@ -33,6 +34,8 @@ async fn on_receive(state: State, bot: Bot, msg: Message) {
 
 #[allow(unused_must_use)]
 async fn proccess_message(user: User, bot: Bot, msg: Message) {
+    let db = DB::new();
+
     bot.send_chat_action(msg.chat.id, ChatAction::Typing).await;
 
     let cloned_user = user.clone();
@@ -44,6 +47,7 @@ async fn proccess_message(user: User, bot: Bot, msg: Message) {
     match result {
         Ok(content) => {
             log::info!("[bot]: {}", content);
+            db.save_message(msg.chat.id, Role::Assistant, content.clone());
             bot.send_message(msg.chat.id, content).await;
         }
         Err(err) => {
