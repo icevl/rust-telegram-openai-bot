@@ -71,6 +71,7 @@ async fn main() {
 
     let db = DB::new();
 
+
     log::info!("Starting...");
 
     db.history_migration().await;

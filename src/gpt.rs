@@ -8,8 +8,6 @@ pub struct MyGPT {
     client: ChatGPT,
 }
 
-static BOT_NAME: &str = "Tereshkova";
-
 impl MyGPT {
     pub fn new(api_key: &str) -> Self {
         MyGPT {
@@ -42,7 +40,6 @@ impl MyGPT {
 
         let gpt_request = self.client.send_history(&enhanced_history).await;
 
-
         match gpt_request {
             Ok(response) => {
                 let content = match response.message_choices.get(0) {
@@ -64,10 +61,19 @@ impl MyGPT {
         let user_form = user.contact_form.clone();
 
         updated_history.push(ChatMessage {
-            content: format!("My name is: '{}' talk to me in '{}', and write from the feminine gender and in an affectionate form. Your name is: '{}'", user_name, user_form, BOT_NAME)
-                .to_string(),
+            content: format!(
+                "Привет. Меня зовут {}. Говори со мной на {}, как будто мы с тобой давной знакомы",
+                user_name, user_form
+            )
+            .to_string(),
             role: Role::User,
         });
+
+        updated_history.push(ChatMessage {
+            content: "Меня зовут Валя".to_string(),
+            role: Role::Assistant,
+        });
+
         updated_history.extend(history);
         updated_history
     }
