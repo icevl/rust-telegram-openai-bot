@@ -38,7 +38,10 @@ impl MyGPT {
         let history = db.get_history(chat_id).unwrap();
         let enhanced_history = MyGPT::build_history(history, &user);
 
+        print!("History: {:#?}", enhanced_history);
+
         let gpt_request = self.client.send_history(&enhanced_history).await;
+
 
         match gpt_request {
             Ok(response) => {
@@ -61,7 +64,7 @@ impl MyGPT {
         let user_form = user.contact_form.clone();
 
         updated_history.push(ChatMessage {
-            content: format!("Please, call me: '{}' treat me like '{}', and write from the feminine gender and in an affectionate form. Also your name is: {}", user_name, user_form, BOT_NAME)
+            content: format!("My name is: '{}' talk to me in '{}', and write from the feminine gender and in an affectionate form. Your name is: '{}'", user_name, user_form, BOT_NAME)
                 .to_string(),
             role: Role::User,
         });
