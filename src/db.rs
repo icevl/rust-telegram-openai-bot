@@ -91,14 +91,14 @@ impl DB {
 
     pub fn get_history(&self, chat_id: ChatId) -> Result<Vec<ChatMessage>, rusqlite::Error> {
         let mut stmt = self.connection.prepare(
-            "SELECT message FROM chat_history WHERE chat_id = ? ORDER BY created_at ASC LIMIT 100",
+            "SELECT message, role FROM chat_history WHERE chat_id = ? ORDER BY created_at ASC LIMIT 100",
         )?;
 
         let message_iter = stmt
             .query_map([chat_id.to_string()], |row| {
                 Ok(LoadedMessage {
                     content: row.get(0)?,
-                    role: Role::User,
+                    role: DB::string_to_role(row.get::<_,String>(1)),
                 })
             })
             .unwrap();
@@ -152,6 +152,15 @@ impl DB {
             Role::System => "system".to_string(),
             Role::Assistant => "assistant".to_string(),
             Role::User => "user".to_string(),
+        }
+    }
+
+    fn string_to_role(role_str: &str) -> Role {
+        match role_str {
+            "system" => Role::System,
+            "assistant" => Role::Assistant,
+            "user" => Role::User,
+            _ => panic!("Invalid role"),
         }
     }
 }
