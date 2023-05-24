@@ -31,10 +31,10 @@ async fn send_typing_action(bot: Bot, chat_id: ChatId) {
 async fn on_receive(state: State, bot: Bot, msg: Message) {
     let user_request = find_user_by_username(&state, msg.chat.username().unwrap());
 
-    let b = bot.clone();
+    let bot_cloned = bot.clone();
     let typing_interval = set_interval!(
         move || {
-            tokio::spawn(send_typing_action(b.clone(), msg.chat.id));
+            tokio::spawn(send_typing_action(bot_cloned.clone(), msg.chat.id));
         },
         3000
     );
