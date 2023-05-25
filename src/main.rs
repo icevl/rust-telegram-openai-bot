@@ -1,9 +1,10 @@
+use std::error::Error;
+
 use crate::db::DB;
 use crate::gpt::MyGPT;
 use chatgpt::types::Role;
 use db::User;
 use dotenv::dotenv;
-use log::LevelFilter;
 use teloxide::{prelude::*, types::ChatAction};
 use tokio_interval::{clear_timer, set_interval};
 
@@ -22,12 +23,15 @@ lazy_static::lazy_static! {
     };
 }
 
-#[allow(unused_must_use)]
 async fn send_typing_action(bot: Bot, chat_id: ChatId) {
-    bot.send_chat_action(chat_id, ChatAction::Typing).await;
+    match bot.send_chat_action(chat_id, ChatAction::Typing).await {
+        Ok(_) => {}
+        Err(err) => {
+            sentry::capture_error(&err);
+        }
+    };
 }
 
-#[allow(unused_must_use)]
 async fn on_receive(state: State, bot: Bot, msg: Message) {
     let user_request = find_user_by_username(&state, msg.chat.username().unwrap());
 
@@ -43,12 +47,11 @@ async fn on_receive(state: State, bot: Bot, msg: Message) {
         proccess_message(user.clone(), bot, msg).await;
         clear_timer!(typing_interval)
     } else {
-        bot.send_message(msg.chat.id, "Access denied").await;
+        send_message(bot, msg.chat.id, "Access denied").await;
         clear_timer!(typing_interval)
     }
 }
 
-#[allow(unused_must_use)]
 async fn proccess_message(user: User, bot: Bot, msg: Message) {
     let db = DB::new();
 
@@ -62,12 +65,13 @@ async fn proccess_message(user: User, bot: Bot, msg: Message) {
         Ok(content) => {
             log::info!("[bot]: {}", content);
             db.save_message(msg.chat.id, Role::Assistant, content.clone());
-            bot.send_message(msg.chat.id, content).await;
+            send_message(bot, msg.chat.id, &content).await;
         }
-        Err(err) => {
-            bot.send_message(msg.chat.id, "I broke down. I feel bad")
-                .await;
-            eprintln!("Error: {}", err);
+        Err(error) => {
+            send_message(bot, msg.chat.id, "I broke down. I feel bad").await;
+
+            let error_ref: &dyn Error = &*error;
+            sentry::capture_error(error_ref);
         }
     }
 }
@@ -76,16 +80,38 @@ fn find_user_by_username<'a>(state: &'a State, username: &'a str) -> Option<&'a 
     state.users.iter().find(|user| user.user_name == username)
 }
 
+fn init_sentry() {
+    let _guard = sentry::init((
+        dbg!(std::env::var("SENTRY_DSN").unwrap_or_default()),
+        sentry::ClientOptions {
+            release: sentry::release_name!(),
+            ..Default::default()
+        },
+    ));
+
+    std::env::set_var("RUST_BACKTRACE", "1");
+}
+
+async fn send_message(bot: Bot, chat_id: ChatId, message: &str) {
+    let result = bot.send_message(chat_id, message).await;
+
+    match result {
+        Ok(_) => {}
+        Err(_) => {}
+    }
+}
+
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-    pretty_env_logger::formatted_builder()
-        .filter_level(LevelFilter::Info)
-        .init();
+
+    pretty_env_logger::formatted_builder().init();
 
     let db = DB::new();
 
     log::info!("Starting...");
+
+    init_sentry();
 
     db.history_migration().await;
     db.users_migration().await;

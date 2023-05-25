@@ -48,10 +48,7 @@ impl MyGPT {
                 };
                 Ok(content)
             }
-            Err(err) => {
-                print!("Error: {:#?}", err);
-                Err("An error occurred ".into())
-            }
+            Err(err) => Err(err.into()),
         }
     }
 
@@ -73,7 +70,6 @@ impl MyGPT {
             content: format!("Привет, {}! Конечно, мы можем общаться на '{}'. Как дела? Чем я могу тебе помочь? Меня зовут Валя",user_name, user_form),
             role: Role::Assistant,
         });
-
 
         updated_history.extend(history);
         updated_history
