@@ -1,10 +1,10 @@
-use std::error::Error;
-
 use crate::db::DB;
 use crate::gpt::MyGPT;
 use chatgpt::types::Role;
 use db::User;
 use dotenv::dotenv;
+use log::LevelFilter;
+use std::error::Error;
 use teloxide::{prelude::*, types::ChatAction};
 use tokio_interval::{clear_timer, set_interval};
 
@@ -30,6 +30,17 @@ async fn send_typing_action(bot: Bot, chat_id: ChatId) {
             sentry::capture_error(&err);
         }
     };
+}
+
+async fn send_message(bot: Bot, chat_id: ChatId, message: &str) {
+    let result = bot.send_message(chat_id, message).await;
+
+    match result {
+        Ok(_) => {}
+        Err(err) => {
+            sentry::capture_error(&err);
+        }
+    }
 }
 
 async fn on_receive(state: State, bot: Bot, msg: Message) {
@@ -92,20 +103,13 @@ fn init_sentry() {
     std::env::set_var("RUST_BACKTRACE", "1");
 }
 
-async fn send_message(bot: Bot, chat_id: ChatId, message: &str) {
-    let result = bot.send_message(chat_id, message).await;
-
-    match result {
-        Ok(_) => {}
-        Err(_) => {}
-    }
-}
-
 #[tokio::main]
 async fn main() {
     dotenv().ok();
 
-    pretty_env_logger::formatted_builder().init();
+    pretty_env_logger::formatted_builder()
+        .filter_level(LevelFilter::Info)
+        .init();
 
     let db = DB::new();
 

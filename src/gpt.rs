@@ -59,7 +59,7 @@ impl MyGPT {
 
         updated_history.push(ChatMessage {
             content: format!(
-                "Привет. Меня зовут {}. Говори со мной на {}, как будто мы с тобой давно знакомы",
+                "Называй меня {}. Говори со мной на {}, как будто мы с тобой давно знакомы",
                 user_name, user_form
             )
             .to_string(),
