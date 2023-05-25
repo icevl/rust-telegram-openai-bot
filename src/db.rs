@@ -89,6 +89,16 @@ impl DB {
             .unwrap();
     }
 
+    pub fn drop_history(&self, chat_id: ChatId) {
+        let mut request = self
+            .connection
+            .prepare("DELETE FROM chat_history WHERE chat_id = :chat_id")
+            .unwrap();
+        request
+            .execute(&[(":chat_id", &chat_id.to_string())])
+            .unwrap();
+    }
+
     pub fn get_history(&self, chat_id: ChatId) -> Result<Vec<ChatMessage>, rusqlite::Error> {
         let mut stmt = self.connection.prepare(
             "SELECT message, role FROM (SELECT message, role, created_at FROM chat_history WHERE chat_id = ? ORDER BY created_at DESC LIMIT 10) ORDER BY created_at ASC",

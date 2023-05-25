@@ -1,20 +1,21 @@
+use crate::command::on_receive_command;
 use crate::db::DB;
 use crate::gpt::MyGPT;
+use crate::utils::{
+    find_user_by_username, is_command_message, send_message, send_typing_action, State,
+};
 use chatgpt::types::Role;
 use db::User;
 use dotenv::dotenv;
 use log::LevelFilter;
 use std::error::Error;
-use teloxide::{prelude::*, types::ChatAction};
+use teloxide::prelude::*;
 use tokio_interval::{clear_timer, set_interval};
 
+mod command;
 mod db;
 mod gpt;
-
-#[derive(Clone, Debug)]
-struct State {
-    users: Vec<User>,
-}
+mod utils;
 
 lazy_static::lazy_static! {
     static ref GPT: MyGPT = {
@@ -23,27 +24,7 @@ lazy_static::lazy_static! {
     };
 }
 
-async fn send_typing_action(bot: Bot, chat_id: ChatId) {
-    match bot.send_chat_action(chat_id, ChatAction::Typing).await {
-        Ok(_) => {}
-        Err(err) => {
-            sentry::capture_error(&err);
-        }
-    };
-}
-
-async fn send_message(bot: Bot, chat_id: ChatId, message: &str) {
-    let result = bot.send_message(chat_id, message).await;
-
-    match result {
-        Ok(_) => {}
-        Err(err) => {
-            sentry::capture_error(&err);
-        }
-    }
-}
-
-async fn on_receive(state: State, bot: Bot, msg: Message) {
+async fn on_receive_message(state: State, bot: Bot, msg: Message) {
     let user_request = find_user_by_username(&state, msg.chat.username().unwrap());
 
     let bot_cloned = bot.clone();
@@ -87,10 +68,6 @@ async fn proccess_message(user: User, bot: Bot, msg: Message) {
     }
 }
 
-fn find_user_by_username<'a>(state: &'a State, username: &'a str) -> Option<&'a User> {
-    state.users.iter().find(|user| user.user_name == username)
-}
-
 fn init_sentry() {
     let _guard = sentry::init((
         dbg!(std::env::var("SENTRY_DSN").unwrap_or_default()),
@@ -129,7 +106,11 @@ async fn main() {
     teloxide::repl(bot, move |bot: Bot, msg: Message| {
         let cloned_state = state.clone();
         let fut = async move {
-            tokio::spawn(on_receive(cloned_state, bot, msg));
+            if is_command_message(msg.clone()) {
+                tokio::spawn(on_receive_command(cloned_state, bot, msg));
+            } else {
+                tokio::spawn(on_receive_message(cloned_state, bot, msg));
+            }
 
             Ok(())
         };
