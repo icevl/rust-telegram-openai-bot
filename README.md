@@ -6,12 +6,11 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
 ## Database
-Program using SQlite database
+Program using SQLite database.
 
-After the bot's first launch, a database file *database.db* will be created. 
-Please kindly add your telegram username (remove first char '@') to the list of authorized names and indicate the appropriate method.
+Once the bot is launched for the first time, a database file named 'database.db' will be created. Please add your Telegram username to the list of authorized names in *users* table (without the first '@' symbol)
 
-Schema:
+**Schema:**
 
  - users (authorized users)
  - chat_history (history messages for GPT conversation)
