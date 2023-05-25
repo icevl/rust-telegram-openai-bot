@@ -62,7 +62,7 @@ impl MyGPT {
 
         updated_history.push(ChatMessage {
             content: format!(
-                "Привет. Меня зовут {}. Говори со мной на {}, как будто мы с тобой давной знакомы",
+                "Привет. Меня зовут {}. Говори со мной на {}, как будто мы с тобой давно знакомы",
                 user_name, user_form
             )
             .to_string(),
@@ -70,9 +70,10 @@ impl MyGPT {
         });
 
         updated_history.push(ChatMessage {
-            content: "Меня зовут Валя".to_string(),
+            content: format!("Привет, {}! Конечно, мы можем общаться на '{}'. Как дела? Чем я могу тебе помочь? Меня зовут Валя",user_name, user_form),
             role: Role::Assistant,
         });
+
 
         updated_history.extend(history);
         updated_history

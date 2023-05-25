@@ -99,7 +99,8 @@ async fn main() {
     teloxide::repl(bot, move |bot: Bot, msg: Message| {
         let cloned_state = state.clone();
         let fut = async move {
-            on_receive(cloned_state, bot, msg).await;
+            tokio::spawn(on_receive(cloned_state, bot, msg));
+
             Ok(())
         };
         async move { fut.await }
