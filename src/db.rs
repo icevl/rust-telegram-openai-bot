@@ -91,8 +91,9 @@ impl DB {
 
     pub fn get_history(&self, chat_id: ChatId) -> Result<Vec<ChatMessage>, rusqlite::Error> {
         let mut stmt = self.connection.prepare(
-            "SELECT message, role FROM (SELECT message, role, created_at FROM chat_history WHERE chat_id = ? ORDER BY created_at DESC LIMIT 50) ORDER BY created_at ASC",
+            "SELECT message, role FROM (SELECT message, role, created_at FROM chat_history WHERE chat_id = ? ORDER BY created_at DESC LIMIT 10) ORDER BY created_at ASC",
         )?;
+
 
         let message_iter = stmt
             .query_map([chat_id.to_string()], |row| {
