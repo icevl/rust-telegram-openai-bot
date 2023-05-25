@@ -1,5 +1,5 @@
 use crate::db::User;
-use teloxide::prelude::*;
+use teloxide::{prelude::*, types::ChatAction};
 
 #[derive(Clone, Debug)]
 pub struct State {
@@ -19,4 +19,22 @@ pub async fn send_message(bot: Bot, chat_id: ChatId, message: &str) {
             sentry::capture_error(&err);
         }
     }
+}
+
+pub async fn send_typing_action(bot: Bot, chat_id: ChatId) {
+    match bot.send_chat_action(chat_id, ChatAction::Typing).await {
+        Ok(_) => {}
+        Err(err) => {
+            sentry::capture_error(&err);
+        }
+    };
+}
+
+pub fn is_command_message(msg: Message) -> bool {
+    let message = msg.text().unwrap();
+    let first_char = message.chars().nth(0).unwrap();
+    if first_char == '/' {
+        return true;
+    }
+    return false;
 }

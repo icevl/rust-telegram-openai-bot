@@ -1,33 +1,26 @@
 use crate::command::on_receive_command;
 use crate::db::DB;
 use crate::gpt::MyGPT;
-use crate::libs::{find_user_by_username, send_message, State};
+use crate::utils::{
+    find_user_by_username, is_command_message, send_message, send_typing_action, State,
+};
 use chatgpt::types::Role;
 use db::User;
 use dotenv::dotenv;
 use log::LevelFilter;
 use std::error::Error;
-use teloxide::{prelude::*, types::ChatAction};
+use teloxide::prelude::*;
 use tokio_interval::{clear_timer, set_interval};
 
 mod command;
 mod db;
 mod gpt;
-mod libs;
+mod utils;
 
 lazy_static::lazy_static! {
     static ref GPT: MyGPT = {
         let api_key = std::env::var("GPT_KEY").expect("GPT_KEY must be set.");
         MyGPT::new(&api_key)
-    };
-}
-
-async fn send_typing_action(bot: Bot, chat_id: ChatId) {
-    match bot.send_chat_action(chat_id, ChatAction::Typing).await {
-        Ok(_) => {}
-        Err(err) => {
-            sentry::capture_error(&err);
-        }
     };
 }
 
@@ -85,15 +78,6 @@ fn init_sentry() {
     ));
 
     std::env::set_var("RUST_BACKTRACE", "1");
-}
-
-fn is_command_message(msg: Message) -> bool {
-    let message = msg.text().unwrap();
-    let first_char = message.chars().nth(0).unwrap();
-    if first_char == '/' {
-        return true;
-    }
-    return false;
 }
 
 #[tokio::main]
