@@ -94,7 +94,6 @@ impl DB {
             "SELECT message, role FROM (SELECT message, role, created_at FROM chat_history WHERE chat_id = ? ORDER BY created_at DESC LIMIT 10) ORDER BY created_at ASC",
         )?;
 
-
         let message_iter = stmt
             .query_map([chat_id.to_string()], |row| {
                 Ok(LoadedMessage {
