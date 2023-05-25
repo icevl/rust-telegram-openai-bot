@@ -22,6 +22,10 @@ Schema:
 cargo watch -x run
 ```
 
+# Bot commands
+- /help - *print help*
+- /new - *start new conversation with new history*
+
 # Build release
 
 ```shell
