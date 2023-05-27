@@ -74,7 +74,7 @@ pub async fn send_tts_multi_parts(bot: Bot, chat_id: ChatId, message: &String) {
             Ok(_) => {}
             Err(error) => {
                 sentry::capture_error(&*error);
-                send_message(bot.clone(), chat_id, &message).await;
+                send_message(bot.clone(), chat_id, &part).await;
             }
         }
     }
