@@ -2,13 +2,15 @@ use crate::command::on_receive_command;
 use crate::db::DB;
 use crate::gpt::MyGPT;
 use crate::utils::{
-    find_user_by_username, is_command_message, send_message, send_typing_action, State,
+    find_user_by_username, is_command_message, send_message, send_tts_multi_parts,
+    send_typing_action, send_voice_recording_action, State,
 };
 use chatgpt::types::Role;
 use db::User;
 use dotenv::dotenv;
 use log::LevelFilter;
 use std::error::Error;
+use std::sync::{Arc, Mutex};
 use teloxide::prelude::*;
 use tokio_interval::{clear_timer, set_interval};
 
@@ -24,24 +26,39 @@ lazy_static::lazy_static! {
     };
 }
 
-async fn on_receive_message(state: State, bot: Bot, msg: Message) {
-    let user_request = find_user_by_username(&state, msg.chat.username().unwrap());
+async fn on_receive_message(state_users: Vec<User>, bot: Bot, msg: Message) {
+    let user_request = find_user_by_username(&state_users, msg.chat.username().unwrap());
 
     let bot_cloned = bot.clone();
-    let typing_interval = set_interval!(
-        move || {
-            tokio::spawn(send_typing_action(bot_cloned.clone(), msg.chat.id));
-        },
-        3000
-    );
 
     if let Some(user) = user_request {
+        let is_voice_response_required = is_tts_enabled(&user);
+
+        let typing_interval = set_interval!(
+            move || {
+                if is_voice_response_required {
+                    tokio::spawn(send_voice_recording_action(bot_cloned.clone(), msg.chat.id));
+                } else {
+                    tokio::spawn(send_typing_action(bot_cloned.clone(), msg.chat.id));
+                }
+            },
+            3000
+        );
+
         proccess_message(user.clone(), bot, msg).await;
         clear_timer!(typing_interval)
     } else {
         send_message(bot, msg.chat.id, "Access denied").await;
-        clear_timer!(typing_interval)
     }
+}
+
+fn is_tts_enabled(user: &User) -> bool {
+    let tts_path = std::env::var("TTS_PATH").unwrap_or_default();
+    if tts_path.is_empty() || !user.is_voice {
+        return false;
+    }
+
+    return true;
 }
 
 async fn proccess_message(user: User, bot: Bot, msg: Message) {
@@ -56,8 +73,16 @@ async fn proccess_message(user: User, bot: Bot, msg: Message) {
     match result {
         Ok(content) => {
             log::info!("[bot]: {}", content);
+            let is_voice_response = is_tts_enabled(&cloned_user);
+
             db.save_message(msg.chat.id, Role::Assistant, content.clone());
-            send_message(bot, msg.chat.id, &content).await;
+
+            if !is_voice_response {
+                send_message(bot, msg.chat.id, &content).await;
+                return;
+            }
+
+            send_tts_multi_parts(bot.clone(), msg.chat.id, &content).await;
         }
         Err(error) => {
             send_message(bot, msg.chat.id, "I broke down. I feel bad").await;
@@ -97,23 +122,31 @@ async fn main() {
     db.history_migration().await;
     db.users_migration().await;
 
-    let users_list = db.get_users().unwrap();
-    let state = State { users: users_list };
-
     let bot_token = std::env::var("TELEGRAM_TOKEN").expect("TELEGRAM_TOKEN must be set.");
     let bot = Bot::new(bot_token);
 
+    let state = Arc::new(Mutex::new(State {
+        users: Mutex::new(Vec::new()),
+    }));
+
+    let users_list = db.get_users().unwrap();
+    state.lock().unwrap().users = Mutex::new(users_list);
+
     teloxide::repl(bot, move |bot: Bot, msg: Message| {
-        let cloned_state = state.clone();
+        let cloned_state = Arc::clone(&state);
+
+        let cloned_users = cloned_state.lock().unwrap().users.lock().unwrap().clone();
+
         let fut = async move {
             if is_command_message(msg.clone()) {
-                tokio::spawn(on_receive_command(cloned_state, bot, msg));
+                tokio::spawn(on_receive_command(cloned_users, bot, msg, cloned_state));
             } else {
-                tokio::spawn(on_receive_message(cloned_state, bot, msg));
+                tokio::spawn(on_receive_message(cloned_users, bot, msg));
             }
 
             Ok(())
         };
+
         async move { fut.await }
     })
     .await;

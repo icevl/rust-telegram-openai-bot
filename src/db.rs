@@ -22,6 +22,7 @@ pub struct User {
     pub user_name: String,
     pub contact_name: String,
     pub contact_form: String,
+    pub is_voice: bool,
 }
 
 impl DB {
@@ -59,7 +60,8 @@ impl DB {
                 id              INTEGER PRIMARY KEY,
                 username        VARCHAR(100) NOT NULL,
                 contact_name    VARCHAR(100) NOT NULL,
-                contact_form    VARCHAR(20) NOT NULL
+                contact_form    VARCHAR(20) NOT NULL,
+                is_voice        TINNYINT(1) DEFAULT 0
             )",
             (),
         );
@@ -127,10 +129,26 @@ impl DB {
         return chat_messages;
     }
 
+    pub fn enable_voice(&self, user_name: String) {
+        let mut request = self
+            .connection
+            .prepare("UPDATE users SET is_voice = 1 WHERE username = :user_name")
+            .unwrap();
+        request.execute(&[(":user_name", &user_name)]).unwrap();
+    }
+
+    pub fn disable_voice(&self, user_name: String) {
+        let mut request = self
+            .connection
+            .prepare("UPDATE users SET is_voice = 0 WHERE username = :user_name")
+            .unwrap();
+        request.execute(&[(":user_name", &user_name)]).unwrap();
+    }
+
     pub fn get_users(&self) -> Result<Vec<User>, rusqlite::Error> {
         let mut stmt = self
             .connection
-            .prepare("SELECT username, contact_name, contact_form FROM users")?;
+            .prepare("SELECT username, contact_name, contact_form, is_voice FROM users")?;
 
         let users_iter = stmt
             .query_map([], |row| {
@@ -138,6 +156,7 @@ impl DB {
                     user_name: row.get(0)?,
                     contact_name: row.get(1)?,
                     contact_form: row.get(2)?,
+                    is_voice: row.get(3)?,
                 })
             })
             .unwrap();
@@ -150,6 +169,7 @@ impl DB {
                         user_name: row.user_name,
                         contact_name: row.contact_name,
                         contact_form: row.contact_form,
+                        is_voice: row.is_voice,
                     })
                     .collect()
             });

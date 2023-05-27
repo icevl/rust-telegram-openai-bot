@@ -20,3 +20,4 @@ dotenv = "0.15.0"
 rusqlite = "0.29.0"
 tokio_interval = "0.1.4"
 sentry = { version = "0.31.2", features = ["anyhow", "log", "debug-logs"] }
+textwrap = "0.16.0"
