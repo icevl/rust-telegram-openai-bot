@@ -39,7 +39,6 @@ pub async fn on_receive_command(
     bot: Bot,
     msg: Message,
     state: Arc<Mutex<State>>,
-    //cb: impl FnOnce(&std::sync::Mutex<Vec<User>>),
 ) {
     let user_request = find_user_by_username(&state_users, msg.chat.username().unwrap());
     let message = msg.text().unwrap();
