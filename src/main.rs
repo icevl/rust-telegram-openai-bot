@@ -2,15 +2,15 @@ use crate::command::on_receive_command;
 use crate::db::DB;
 use crate::gpt::MyGPT;
 use crate::utils::{
-    find_user_by_username, is_command_message, send_message, send_tts_multi_parts, send_typing_action,
-    send_voice_recording_action, State,
+    find_user_by_username, is_command_message, send_message, send_tts_multi_parts,
+    send_typing_action, send_voice_recording_action, State,
 };
-
 use chatgpt::types::Role;
 use db::User;
 use dotenv::dotenv;
 use log::LevelFilter;
 use std::error::Error;
+use std::sync::{Arc, Mutex};
 use teloxide::prelude::*;
 use tokio_interval::{clear_timer, set_interval};
 
@@ -26,8 +26,8 @@ lazy_static::lazy_static! {
     };
 }
 
-async fn on_receive_message(state: State, bot: Bot, msg: Message) {
-    let user_request = find_user_by_username(&state, msg.chat.username().unwrap());
+async fn on_receive_message(state_users: Vec<User>, bot: Bot, msg: Message) {
+    let user_request = find_user_by_username(&state_users, msg.chat.username().unwrap());
 
     let bot_cloned = bot.clone();
 
@@ -122,23 +122,31 @@ async fn main() {
     db.history_migration().await;
     db.users_migration().await;
 
-    let users_list = db.get_users().unwrap();
-    let state = State { users: users_list };
-
     let bot_token = std::env::var("TELEGRAM_TOKEN").expect("TELEGRAM_TOKEN must be set.");
     let bot = Bot::new(bot_token);
 
+    let state = Arc::new(Mutex::new(State {
+        users: Mutex::new(Vec::new()),
+    }));
+
+    let users_list = db.get_users().unwrap();
+    state.lock().unwrap().users = Mutex::new(users_list);
+
     teloxide::repl(bot, move |bot: Bot, msg: Message| {
-        let cloned_state = state.clone();
+        let cloned_state = Arc::clone(&state);
+
+        let cloned_users = cloned_state.lock().unwrap().users.lock().unwrap().clone();
+
         let fut = async move {
             if is_command_message(msg.clone()) {
-                tokio::spawn(on_receive_command(cloned_state, bot, msg));
+                tokio::spawn(on_receive_command(cloned_users, bot, msg, cloned_state));
             } else {
-                tokio::spawn(on_receive_message(cloned_state, bot, msg));
+                tokio::spawn(on_receive_message(cloned_users, bot, msg));
             }
 
             Ok(())
         };
+
         async move { fut.await }
     })
     .await;

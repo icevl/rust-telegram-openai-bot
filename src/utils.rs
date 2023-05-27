@@ -1,16 +1,16 @@
-use std::error::Error;
+use std::{error::Error, sync::Mutex};
 
 use crate::db::User;
 use reqwest;
 use teloxide::{prelude::*, types::ChatAction, types::InputFile};
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct State {
-    pub users: Vec<User>,
+    pub users: Mutex<Vec<User>>,
 }
 
-pub fn find_user_by_username<'a>(state: &'a State, username: &'a str) -> Option<&'a User> {
-    state.users.iter().find(|user| user.user_name == username)
+pub fn find_user_by_username<'a>(users: &'a Vec<User>, username: &'a str) -> Option<&'a User> {
+    users.iter().find(|user| user.user_name == username)
 }
 
 pub async fn send_message(bot: Bot, chat_id: ChatId, message: &str) {

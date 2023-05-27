@@ -129,6 +129,22 @@ impl DB {
         return chat_messages;
     }
 
+    pub fn enable_voice(&self, user_name: String) {
+        let mut request = self
+            .connection
+            .prepare("UPDATE users SET is_voice = 1 WHERE username = :user_name")
+            .unwrap();
+        request.execute(&[(":user_name", &user_name)]).unwrap();
+    }
+
+    pub fn disable_voice(&self, user_name: String) {
+        let mut request = self
+            .connection
+            .prepare("UPDATE users SET is_voice = 0 WHERE username = :user_name")
+            .unwrap();
+        request.execute(&[(":user_name", &user_name)]).unwrap();
+    }
+
     pub fn get_users(&self) -> Result<Vec<User>, rusqlite::Error> {
         let mut stmt = self
             .connection
