@@ -1,10 +1,6 @@
 use crate::command::on_receive_command;
 use crate::db::DB;
-use crate::gpt::MyGPT;
-use crate::utils::{
-    find_user_by_username, is_command_message, is_tts_enabled, proccess_text_message, send_message,
-    send_typing_action, send_voice_recording_action, State,
-};
+use crate::utils::*;
 use db::User;
 use dotenv::dotenv;
 use log::LevelFilter;
@@ -16,13 +12,6 @@ mod command;
 mod db;
 mod gpt;
 mod utils;
-
-lazy_static::lazy_static! {
-    static ref GPT: MyGPT = {
-        let api_key = std::env::var("GPT_KEY").expect("GPT_KEY must be set.");
-        MyGPT::new(&api_key)
-    };
-}
 
 async fn on_receive_message(state_users: Vec<User>, bot: Bot, msg: Message) {
     let user_request = find_user_by_username(&state_users, msg.chat.username().unwrap());

@@ -127,7 +127,8 @@ pub async fn proccess_text_message(user: User, bot: Bot, msg: Message) {
     match result {
         Ok(content) => {
             log::info!("[bot]: {}", content);
-            let is_voice_response = is_tts_enabled(&cloned_user);
+            let is_voice_response =
+                is_tts_enabled(&cloned_user) && !is_code_listing(content.as_str());
 
             db.save_message(msg.chat.id, Role::Assistant, content.clone());
 
@@ -154,4 +155,28 @@ pub fn is_tts_enabled(user: &User) -> bool {
     }
 
     return true;
+}
+
+pub fn is_code_listing(text: &str) -> bool {
+    let indented_lines = text.lines().filter(|line| line.starts_with("    ")).count();
+    let total_lines = text.lines().count();
+    let indentation_ratio = indented_lines as f32 / total_lines as f32;
+
+    if indentation_ratio > 0.5 {
+        return true;
+    }
+
+    let keywords = [
+        "fn", "let", "var", "const", "if", "for", "while", "impl", "struct",
+    ];
+    if keywords.iter().any(|&keyword| text.contains(keyword)) {
+        return true;
+    }
+
+    let syntax_characters = ['{', '}', '(', ')', '`'];
+    if syntax_characters.iter().any(|&c| text.contains(c)) {
+        return true;
+    }
+
+    false
 }
