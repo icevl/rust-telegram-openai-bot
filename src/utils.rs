@@ -38,19 +38,25 @@ pub async fn send_tts(
         .send()
         .await;
 
-    let resp = response.unwrap();
-
-    if !resp.status().is_success() {
-        return Err("HTTP tts error".into());
-    }
-
-    let body = resp.bytes().await;
-    let audio_stream = InputFile::memory(body.unwrap());
-    let response = bot.send_voice(chat_id, audio_stream).await;
-
     match response {
-        Ok(_) => Ok(true),
-        Err(error) => Err(error.into()),
+        Ok(resp) => {
+            if !resp.status().is_success() {
+                return Err("HTTP tts error".into());
+            }
+
+            let body = resp.bytes().await;
+            let audio_stream = InputFile::memory(body.unwrap());
+            let response = bot.send_voice(chat_id, audio_stream).await;
+
+            match response {
+                Ok(_) => Ok(true),
+                Err(error) => Err(error.into()),
+            }
+        }
+        Err(error) => {
+            sentry::capture_error(&error);
+            return Err(error.into());
+        }
     }
 }
 
