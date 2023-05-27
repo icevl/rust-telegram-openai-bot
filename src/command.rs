@@ -1,8 +1,7 @@
+use crate::db::DB;
 use crate::utils::{find_user_by_username, send_message, State};
 use std::str::FromStr;
 use teloxide::{prelude::*, utils::command::BotCommands};
-
-use crate::db::DB;
 
 #[derive(BotCommands, Clone)]
 #[command(
