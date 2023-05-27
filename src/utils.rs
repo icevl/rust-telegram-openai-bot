@@ -1,6 +1,10 @@
 use std::{error::Error, sync::Mutex};
 
-use crate::db::User;
+use crate::{
+    db::{User, DB},
+    gpt::MyGPT,
+};
+use chatgpt::types::Role;
 use reqwest;
 use teloxide::{prelude::*, types::ChatAction, types::InputFile};
 
@@ -95,10 +99,59 @@ pub async fn send_voice_recording_action(bot: Bot, chat_id: ChatId) {
 }
 
 pub fn is_command_message(msg: Message) -> bool {
-    let message = msg.text().unwrap();
-    let first_char = message.chars().nth(0).unwrap();
-    if first_char == '/' {
-        return true;
+    let message = msg.text();
+
+    match message {
+        Some(text) => {
+            let first_char = text.chars().nth(0).unwrap();
+            if first_char == '/' {
+                return true;
+            }
+            return false;
+        }
+        None => return false,
     }
-    return false;
+}
+
+pub async fn proccess_text_message(user: User, bot: Bot, msg: Message) {
+    let gpt_api_key = std::env::var("GPT_KEY").expect("GPT_KEY must be set.");
+    let db = DB::new();
+    let gpt = MyGPT::new(&gpt_api_key);
+    let message = msg.text().unwrap();
+    let cloned_user = user.clone();
+
+    let result = gpt.send_msg(msg.chat.id, user, &message).await;
+
+    log::info!("[{}]: {}", cloned_user.user_name, message);
+
+    match result {
+        Ok(content) => {
+            log::info!("[bot]: {}", content);
+            let is_voice_response = is_tts_enabled(&cloned_user);
+
+            db.save_message(msg.chat.id, Role::Assistant, content.clone());
+
+            if !is_voice_response {
+                send_message(bot, msg.chat.id, &content).await;
+                return;
+            }
+
+            send_tts_multi_parts(bot.clone(), msg.chat.id, &content).await;
+        }
+        Err(error) => {
+            send_message(bot, msg.chat.id, "I broke down. I feel bad").await;
+
+            let error_ref: &dyn Error = &*error;
+            sentry::capture_error(error_ref);
+        }
+    }
+}
+
+pub fn is_tts_enabled(user: &User) -> bool {
+    let tts_path = std::env::var("TTS_PATH").unwrap_or_default();
+    if tts_path.is_empty() || !user.is_voice {
+        return false;
+    }
+
+    return true;
 }

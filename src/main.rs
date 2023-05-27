@@ -2,14 +2,12 @@ use crate::command::on_receive_command;
 use crate::db::DB;
 use crate::gpt::MyGPT;
 use crate::utils::{
-    find_user_by_username, is_command_message, send_message, send_tts_multi_parts,
+    find_user_by_username, is_command_message, is_tts_enabled, proccess_text_message, send_message,
     send_typing_action, send_voice_recording_action, State,
 };
-use chatgpt::types::Role;
 use db::User;
 use dotenv::dotenv;
 use log::LevelFilter;
-use std::error::Error;
 use std::sync::{Arc, Mutex};
 use teloxide::prelude::*;
 use tokio_interval::{clear_timer, set_interval};
@@ -52,44 +50,15 @@ async fn on_receive_message(state_users: Vec<User>, bot: Bot, msg: Message) {
     }
 }
 
-fn is_tts_enabled(user: &User) -> bool {
-    let tts_path = std::env::var("TTS_PATH").unwrap_or_default();
-    if tts_path.is_empty() || !user.is_voice {
-        return false;
-    }
-
-    return true;
-}
-
 async fn proccess_message(user: User, bot: Bot, msg: Message) {
-    let db = DB::new();
+    let message = msg.text();
 
-    let cloned_user = user.clone();
-    let message = msg.text().unwrap();
-    let result = GPT.send_msg(msg.chat.id, user, &message).await;
-
-    log::info!("[{}]: {}", cloned_user.user_name, message);
-
-    match result {
-        Ok(content) => {
-            log::info!("[bot]: {}", content);
-            let is_voice_response = is_tts_enabled(&cloned_user);
-
-            db.save_message(msg.chat.id, Role::Assistant, content.clone());
-
-            if !is_voice_response {
-                send_message(bot, msg.chat.id, &content).await;
-                return;
-            }
-
-            send_tts_multi_parts(bot.clone(), msg.chat.id, &content).await;
+    match message {
+        Some(_) => {
+            proccess_text_message(user, bot, msg).await;
         }
-        Err(error) => {
-            send_message(bot, msg.chat.id, "I broke down. I feel bad").await;
 
-            let error_ref: &dyn Error = &*error;
-            sentry::capture_error(error_ref);
-        }
+        None => {}
     }
 }
 
