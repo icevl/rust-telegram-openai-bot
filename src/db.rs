@@ -49,7 +49,7 @@ impl DB {
                 log::info!("Table [history] successfully created")
             }
             Err(err) => {
-                log::info!("Error in [history] creation: {}", err)
+                log::warn!("Warning in [history] creation: {}", err)
             }
         }
     }
@@ -71,7 +71,7 @@ impl DB {
                 log::info!("Table [users] successfully created")
             }
             Err(err) => {
-                log::info!("Error in [users] creation: {}", err)
+                log::warn!("Warning in [users] creation: {}", err)
             }
         }
     }
