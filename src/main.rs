@@ -11,6 +11,7 @@ use tokio_interval::{clear_timer, set_interval};
 mod command;
 mod db;
 mod gpt;
+mod prompt;
 mod utils;
 
 async fn on_receive_message(state_users: Vec<User>, bot: Bot, msg: Message) {
@@ -63,6 +64,27 @@ fn init_sentry() {
     std::env::set_var("RUST_BACKTRACE", "1");
 }
 
+async fn bot_listener(bot: Bot, state: Arc<Mutex<State>>) {
+    teloxide::repl(bot, move |bot: Bot, msg: Message| {
+        let cloned_state = Arc::clone(&state);
+
+        let cloned_users = cloned_state.lock().unwrap().users.lock().unwrap().clone();
+
+        let fut = async move {
+            if is_command_message(msg.clone()) {
+                tokio::spawn(on_receive_command(cloned_users, bot, msg, cloned_state));
+            } else {
+                tokio::spawn(on_receive_message(cloned_users, bot, msg));
+            }
+
+            Ok(())
+        };
+
+        async move { fut.await }
+    })
+    .await;
+}
+
 #[tokio::main]
 async fn main() {
     dotenv().ok();
@@ -90,22 +112,7 @@ async fn main() {
     let users_list = db.get_users().unwrap();
     state.lock().unwrap().users = Mutex::new(users_list);
 
-    teloxide::repl(bot, move |bot: Bot, msg: Message| {
-        let cloned_state = Arc::clone(&state);
+    tokio::spawn(bot_listener(bot, state.clone()));
 
-        let cloned_users = cloned_state.lock().unwrap().users.lock().unwrap().clone();
-
-        let fut = async move {
-            if is_command_message(msg.clone()) {
-                tokio::spawn(on_receive_command(cloned_users, bot, msg, cloned_state));
-            } else {
-                tokio::spawn(on_receive_message(cloned_users, bot, msg));
-            }
-
-            Ok(())
-        };
-
-        async move { fut.await }
-    })
-    .await;
+    prompt::prompt_process(state.clone());
 }
