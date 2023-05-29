@@ -166,9 +166,7 @@ pub fn is_code_listing(text: &str) -> bool {
         return true;
     }
 
-    let keywords = [
-        "fn", "let", "var", "const", "if", "for", "while", "impl", "struct",
-    ];
+    let keywords = ["fn"];
     if keywords.iter().any(|&keyword| text.contains(keyword)) {
         return true;
     }
