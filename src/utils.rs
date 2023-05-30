@@ -6,11 +6,24 @@ use crate::{
 };
 use chatgpt::types::Role;
 use reqwest;
-use teloxide::{prelude::*, types::ChatAction, types::InputFile};
+use teloxide::{
+    net::Download,
+    prelude::*,
+    types::InputFile,
+    types::{ChatAction, FileMeta},
+};
+use tokio::fs::OpenOptions;
 
 #[derive(Debug)]
 pub struct State {
     pub users: Mutex<Vec<User>>,
+}
+
+pub struct TextMessage<'a> {
+    pub user: User,
+    pub bot: Bot,
+    pub chat_id: ChatId,
+    pub message: &'a str,
 }
 
 pub fn find_user_by_username<'a>(users: &'a Vec<User>, username: &'a str) -> Option<&'a User> {
@@ -113,16 +126,15 @@ pub fn is_command_message(msg: Message) -> bool {
     }
 }
 
-pub async fn proccess_text_message(user: User, bot: Bot, msg: Message) {
+pub async fn proccess_text_message(args: TextMessage<'_>) {
     let gpt_api_key = std::env::var("GPT_KEY").expect("GPT_KEY must be set.");
     let db = DB::new();
     let gpt = MyGPT::new(&gpt_api_key);
-    let message = msg.text().unwrap();
-    let cloned_user = user.clone();
+    let cloned_user = args.user.clone();
 
-    let result = gpt.send_msg(msg.chat.id, user, &message).await;
+    let result = gpt.send_msg(args.chat_id, args.user, &args.message).await;
 
-    log::info!("[{}]: {}", cloned_user.user_name, message);
+    log::info!("[{}]: {}", cloned_user.user_name, args.message);
 
     match result {
         Ok(content) => {
@@ -130,17 +142,17 @@ pub async fn proccess_text_message(user: User, bot: Bot, msg: Message) {
             let is_voice_response =
                 is_tts_enabled(&cloned_user) && !is_code_listing(content.as_str());
 
-            db.save_message(msg.chat.id, Role::Assistant, content.clone());
+            db.save_message(args.chat_id, Role::Assistant, content.clone());
 
             if !is_voice_response {
-                send_message(bot, msg.chat.id, &content).await;
+                send_message(args.bot, args.chat_id, &content).await;
                 return;
             }
 
-            send_tts_multi_parts(bot.clone(), msg.chat.id, &content).await;
+            send_tts_multi_parts(args.bot.clone(), args.chat_id, &content).await;
         }
         Err(error) => {
-            send_message(bot, msg.chat.id, "I broke down. I feel bad").await;
+            send_message(args.bot, args.chat_id, "I broke down. I feel bad").await;
 
             let error_ref: &dyn Error = &*error;
             sentry::capture_error(error_ref);
@@ -155,6 +167,31 @@ pub fn is_tts_enabled(user: &User) -> bool {
     }
 
     return true;
+}
+
+pub async fn asr(bot: Bot, file: &FileMeta) -> &'static str {
+    log::info!("VOICE: {:?}", file.id);
+
+    let mut local_file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .append(true)
+        .open("/tmp/123.ogg")
+        .await
+        .unwrap();
+
+    let file_response = bot.get_file(&file.id).await;
+    match file_response {
+        Ok(file_request) => {
+            log::info!("FILE: {:?}", file_request.path);
+            bot.download_file(&file_request.path, &mut local_file).await;
+            "test from asr goes here"
+        }
+        Err(err) => {
+            log::error!("Failed to create file request: {:?}", err);
+            ""
+        }
+    }
 }
 
 pub fn is_code_listing(text: &str) -> bool {

@@ -4,8 +4,9 @@ use crate::utils::*;
 use db::User;
 use dotenv::dotenv;
 use log::LevelFilter;
+
 use std::sync::{Arc, Mutex};
-use teloxide::prelude::*;
+use teloxide::{prelude::*, Bot};
 use tokio_interval::{clear_timer, set_interval};
 
 mod command;
@@ -15,7 +16,6 @@ mod utils;
 
 async fn on_receive_message(state_users: Vec<User>, bot: Bot, msg: Message) {
     let user_request = find_user_by_username(&state_users, msg.chat.username().unwrap());
-
     let bot_cloned = bot.clone();
 
     if let Some(user) = user_request {
@@ -40,15 +40,30 @@ async fn on_receive_message(state_users: Vec<User>, bot: Bot, msg: Message) {
 }
 
 async fn proccess_message(user: User, bot: Bot, msg: Message) {
+    let voice = msg.voice();
     let message = msg.text();
 
-    match message {
-        Some(_) => {
-            proccess_text_message(user, bot, msg).await;
-        }
+    let mut content = "";
 
-        None => {}
+    if voice.is_some() {
+        content = asr(bot.clone(), &voice.unwrap().file).await;
     }
+
+    if message.is_some() {
+        content = msg.text().unwrap();
+    }
+
+    if content.trim().is_empty() {
+        return;
+    }
+
+    proccess_text_message(TextMessage {
+        user: user,
+        bot: bot,
+        chat_id: msg.chat.id,
+        message: content.clone(),
+    })
+    .await;
 }
 
 fn init_sentry() {
@@ -90,22 +105,26 @@ async fn main() {
     let users_list = db.get_users().unwrap();
     state.lock().unwrap().users = Mutex::new(users_list);
 
-    teloxide::repl(bot, move |bot: Bot, msg: Message| {
-        let cloned_state = Arc::clone(&state);
+    let handler = Update::filter_message().endpoint(
+        |bot: Bot, state: Arc<Mutex<State>>, msg: Message| async move {
+            let cloned_users = state.lock().unwrap().users.lock().unwrap().clone();
 
-        let cloned_users = cloned_state.lock().unwrap().users.lock().unwrap().clone();
-
-        let fut = async move {
             if is_command_message(msg.clone()) {
-                tokio::spawn(on_receive_command(cloned_users, bot, msg, cloned_state));
+                on_receive_command(cloned_users, bot, msg, state).await;
             } else {
-                tokio::spawn(on_receive_message(cloned_users, bot, msg));
+                on_receive_message(cloned_users, bot, msg).await;
             }
 
-            Ok(())
-        };
+            respond(())
+        },
+    );
 
-        async move { fut.await }
-    })
-    .await;
+    let cloned_state = Arc::clone(&state);
+
+    Dispatcher::builder(bot, handler)
+        .dependencies(dptree::deps![cloned_state])
+        .enable_ctrlc_handler()
+        .build()
+        .dispatch()
+        .await;
 }
