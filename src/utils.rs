@@ -13,6 +13,7 @@ use teloxide::{
 };
 use tokio::fs::OpenOptions;
 use tokio_interval::{clear_timer, set_interval};
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct State {
@@ -170,18 +171,17 @@ pub fn is_tts_enabled(user: &User) -> bool {
 }
 
 pub async fn asr(bot: Bot, file: &FileMeta) -> &'static str {
-    log::info!("VOICE: {:?}", file.id);
-
     let dir = env::temp_dir();
-    let tmp_file_name = format!("{}file.ogg", dir.display());
+    let tmp_file_path = format!("{}{}.ogg", dir.display(), Uuid::new_v4());
 
-    println!("Temporary directory: {}", tmp_file_name);
+    log::info!("Voice: {:?}", file.id);
+    log::info!("Temporary directory: {}", tmp_file_path);
 
     let mut local_file = OpenOptions::new()
         .write(true)
         .create(true)
         .append(true)
-        .open(&tmp_file_name)
+        .open(&tmp_file_path)
         .await
         .unwrap();
 
@@ -192,7 +192,10 @@ pub async fn asr(bot: Bot, file: &FileMeta) -> &'static str {
             bot.download_file(&file_request.path, &mut local_file)
                 .await
                 .unwrap();
-            fs::remove_file(tmp_file_name).unwrap();
+
+            // TODO: proccess data to STT API
+
+            fs::remove_file(tmp_file_path).unwrap();
 
             "test from asr goes here"
         }
