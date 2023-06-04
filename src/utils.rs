@@ -1,16 +1,30 @@
-use std::{error::Error, sync::Mutex};
-
 use crate::{
     db::{User, DB},
     gpt::MyGPT,
 };
 use chatgpt::types::Role;
 use reqwest;
-use teloxide::{prelude::*, types::ChatAction, types::InputFile};
+use std::{env, error::Error, fs, sync::Mutex};
+use teloxide::{
+    net::Download,
+    prelude::*,
+    types::InputFile,
+    types::{ChatAction, FileMeta},
+};
+use tokio::fs::OpenOptions;
+use tokio_interval::{clear_timer, set_interval};
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct State {
     pub users: Mutex<Vec<User>>,
+}
+
+pub struct TextMessage<'a> {
+    pub user: User,
+    pub bot: Bot,
+    pub chat_id: ChatId,
+    pub message: &'a str,
 }
 
 pub fn find_user_by_username<'a>(users: &'a Vec<User>, username: &'a str) -> Option<&'a User> {
@@ -113,16 +127,15 @@ pub fn is_command_message(msg: Message) -> bool {
     }
 }
 
-pub async fn proccess_text_message(user: User, bot: Bot, msg: Message) {
+pub async fn proccess_text_message(args: TextMessage<'_>) {
     let gpt_api_key = std::env::var("GPT_KEY").expect("GPT_KEY must be set.");
     let db = DB::new();
     let gpt = MyGPT::new(&gpt_api_key);
-    let message = msg.text().unwrap();
-    let cloned_user = user.clone();
+    let cloned_user = args.user.clone();
 
-    let result = gpt.send_msg(msg.chat.id, user, &message).await;
+    let result = gpt.send_msg(args.chat_id, args.user, &args.message).await;
 
-    log::info!("[{}]: {}", cloned_user.user_name, message);
+    log::info!("[{}]: {}", cloned_user.user_name, args.message);
 
     match result {
         Ok(content) => {
@@ -130,17 +143,17 @@ pub async fn proccess_text_message(user: User, bot: Bot, msg: Message) {
             let is_voice_response =
                 is_tts_enabled(&cloned_user) && !is_code_listing(content.as_str());
 
-            db.save_message(msg.chat.id, Role::Assistant, content.clone());
+            db.save_message(args.chat_id, Role::Assistant, content.clone());
 
             if !is_voice_response {
-                send_message(bot, msg.chat.id, &content).await;
+                send_message(args.bot, args.chat_id, &content).await;
                 return;
             }
 
-            send_tts_multi_parts(bot.clone(), msg.chat.id, &content).await;
+            send_tts_multi_parts(args.bot.clone(), args.chat_id, &content).await;
         }
         Err(error) => {
-            send_message(bot, msg.chat.id, "I broke down. I feel bad").await;
+            send_message(args.bot, args.chat_id, "I broke down. I feel bad").await;
 
             let error_ref: &dyn Error = &*error;
             sentry::capture_error(error_ref);
@@ -155,6 +168,42 @@ pub fn is_tts_enabled(user: &User) -> bool {
     }
 
     return true;
+}
+
+pub async fn asr(bot: Bot, file: &FileMeta) -> &'static str {
+    let dir = env::temp_dir();
+    let tmp_file_path = format!("{}{}.ogg", dir.display(), Uuid::new_v4());
+
+    log::info!("Voice: {:?}", file.id);
+    log::info!("Temporary directory: {}", tmp_file_path);
+
+    let mut local_file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .append(true)
+        .open(&tmp_file_path)
+        .await
+        .unwrap();
+
+    let file_response = bot.get_file(&file.id).await;
+    match file_response {
+        Ok(file_request) => {
+            log::info!("FILE: {:?}", file_request.path);
+            bot.download_file(&file_request.path, &mut local_file)
+                .await
+                .unwrap();
+
+            // TODO: proccess data to STT API
+
+            fs::remove_file(tmp_file_path).unwrap();
+
+            "test from asr goes here"
+        }
+        Err(err) => {
+            log::error!("Failed to create file request: {:?}", err);
+            ""
+        }
+    }
 }
 
 pub fn is_code_listing(text: &str) -> bool {
@@ -177,4 +226,56 @@ pub fn is_code_listing(text: &str) -> bool {
     }
 
     false
+}
+
+pub async fn proccess_message(user: User, bot: Bot, msg: Message) {
+    let voice = msg.voice();
+    let message = msg.text();
+
+    let mut content = "";
+
+    if voice.is_some() {
+        content = asr(bot.clone(), &voice.unwrap().file).await;
+    }
+
+    if message.is_some() {
+        content = msg.text().unwrap();
+    }
+
+    if content.trim().is_empty() {
+        return;
+    }
+
+    proccess_text_message(TextMessage {
+        user: user,
+        bot: bot,
+        chat_id: msg.chat.id,
+        message: content.clone(),
+    })
+    .await;
+}
+
+pub async fn on_receive_message(state_users: Vec<User>, bot: Bot, msg: Message) {
+    let user_request = find_user_by_username(&state_users, msg.chat.username().unwrap());
+    let bot_cloned = bot.clone();
+
+    if let Some(user) = user_request {
+        let is_voice_response_required = is_tts_enabled(&user);
+
+        let typing_interval = set_interval!(
+            move || {
+                if is_voice_response_required {
+                    tokio::spawn(send_voice_recording_action(bot_cloned.clone(), msg.chat.id));
+                } else {
+                    tokio::spawn(send_typing_action(bot_cloned.clone(), msg.chat.id));
+                }
+            },
+            3000
+        );
+
+        proccess_message(user.clone(), bot, msg).await;
+        clear_timer!(typing_interval)
+    } else {
+        send_message(bot, msg.chat.id, "Access denied").await;
+    }
 }

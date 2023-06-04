@@ -1337,6 +1337,7 @@ dependencies = [
  "textwrap",
  "tokio",
  "tokio_interval",
+ "uuid",
 ]
 
 [[package]]
