@@ -1,11 +1,10 @@
-use std::{error::Error, sync::Mutex};
-
 use crate::{
     db::{User, DB},
     gpt::MyGPT,
 };
 use chatgpt::types::Role;
 use reqwest;
+use std::{env, error::Error, fs, sync::Mutex};
 use teloxide::{
     net::Download,
     prelude::*,
@@ -173,11 +172,16 @@ pub fn is_tts_enabled(user: &User) -> bool {
 pub async fn asr(bot: Bot, file: &FileMeta) -> &'static str {
     log::info!("VOICE: {:?}", file.id);
 
+    let dir = env::temp_dir();
+    let tmp_file_name = format!("{}file.ogg", dir.display());
+
+    println!("Temporary directory: {}", tmp_file_name);
+
     let mut local_file = OpenOptions::new()
         .write(true)
         .create(true)
         .append(true)
-        .open("/tmp/123.ogg")
+        .open(&tmp_file_name)
         .await
         .unwrap();
 
@@ -185,7 +189,11 @@ pub async fn asr(bot: Bot, file: &FileMeta) -> &'static str {
     match file_response {
         Ok(file_request) => {
             log::info!("FILE: {:?}", file_request.path);
-            bot.download_file(&file_request.path, &mut local_file).await;
+            bot.download_file(&file_request.path, &mut local_file)
+                .await
+                .unwrap();
+            fs::remove_file(tmp_file_name).unwrap();
+
             "test from asr goes here"
         }
         Err(err) => {
