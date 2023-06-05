@@ -45,7 +45,7 @@ pub async fn send_message(bot: Bot, chat_id: ChatId, message: &str) {
 pub async fn send_tts(
     bot: Bot,
     chat_id: ChatId,
-    message: &String,
+    message: &str,
 ) -> Result<bool, Box<dyn Error + Send + Sync>> {
     let json_body = serde_json::json!({ "text": message });
 
@@ -78,7 +78,7 @@ pub async fn send_tts(
     }
 }
 
-pub async fn send_tts_multi_parts(bot: Bot, chat_id: ChatId, message: &String) {
+pub async fn send_tts_multi_parts(bot: Bot, chat_id: ChatId, message: &str) {
     let parts = textwrap::wrap(message, 800);
 
     for (_, part) in parts.iter().enumerate() {
@@ -143,7 +143,7 @@ pub async fn proccess_text_message(args: TextMessage<'_>) {
             let is_voice_response =
                 is_tts_enabled(&cloned_user) && !is_code_listing(content.as_str());
 
-            db.save_message(args.chat_id, Role::Assistant, content.clone());
+            db.save_message(args.chat_id, Role::Assistant, &content);
 
             if !is_voice_response {
                 send_message(args.bot, args.chat_id, &content).await;

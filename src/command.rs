@@ -58,7 +58,7 @@ pub async fn on_receive_command(
                 }
 
                 Command::Text => {
-                    db.disable_voice(user.user_name.to_string());
+                    db.disable_voice(&user.user_name);
                     let users_list = db.get_users().unwrap();
                     state.lock().unwrap().users = Mutex::new(users_list);
 
@@ -66,7 +66,7 @@ pub async fn on_receive_command(
                 }
 
                 Command::Voice => {
-                    db.enable_voice(user.user_name.to_string());
+                    db.enable_voice(&user.user_name);
                     let users_list = db.get_users().unwrap();
                     state.lock().unwrap().users = Mutex::new(users_list);
 

@@ -76,10 +76,10 @@ impl DB {
         }
     }
 
-    pub fn save_message(&self, chat_id: ChatId, role: Role, message: String) {
+    pub fn save_message(&self, chat_id: ChatId, role: Role, message: &str) {
         let msg_data = Message {
             chat_id: chat_id.to_string(),
-            message: message,
+            message: message.to_string(),
             role: DB::role_to_string(role),
         };
 
@@ -129,7 +129,7 @@ impl DB {
         return chat_messages;
     }
 
-    pub fn enable_voice(&self, user_name: String) {
+    pub fn enable_voice(&self, user_name: &str) {
         let mut request = self
             .connection
             .prepare("UPDATE users SET is_voice = 1 WHERE username = :user_name")
@@ -137,7 +137,7 @@ impl DB {
         request.execute(&[(":user_name", &user_name)]).unwrap();
     }
 
-    pub fn disable_voice(&self, user_name: String) {
+    pub fn disable_voice(&self, user_name: &str) {
         let mut request = self
             .connection
             .prepare("UPDATE users SET is_voice = 0 WHERE username = :user_name")

@@ -31,7 +31,7 @@ impl MyGPT {
     ) -> Result<String, Box<dyn Error + Send + Sync>> {
         let db = DB::new();
 
-        db.save_message(chat_id, Role::User, message.to_string());
+        db.save_message(chat_id, Role::User, &message);
 
         let history = db.get_history(chat_id).unwrap();
         let enhanced_history = MyGPT::build_history(history, &user);
