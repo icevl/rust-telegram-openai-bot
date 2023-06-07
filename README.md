@@ -5,9 +5,22 @@ For the TTS functionality, you can use a self-hosted TTS engine, which is demons
 
 # Quick start
 
-## install Rust
+## install
 ```shell
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+sudo apt install libssl-dev
+sudo apt install libsqlite3-dev
+```
+
+## Run in development mode with hot reload
+```shell
+cargo watch -x run
+```
+
+## Build release
+
+```shell
+cargo build --release
 ```
 
 ## Database
@@ -29,19 +42,8 @@ SENTRY_DSN=<optional sentry dsn>
 TTS_PATH=<optional tts path> (example: http://localhost:10000/)
 ```
 
-## Run in development mode with hot reload
-```shell
-cargo watch -x run
-```
-
 # Bot commands
 - /help - *print help*
 - /new - *start new conversation with new history*
 - /text - *text responses*
 - /voice - *voice responses*
-
-# Build release
-
-```shell
-cargo build --release
-```
