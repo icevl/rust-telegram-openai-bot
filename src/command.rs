@@ -18,6 +18,8 @@ enum Command {
     Text,
     #[command(description = "Voice responses")]
     Voice,
+    #[command(description = "Broadcast message")]
+    Broadcast,
 }
 
 impl FromStr for Command {
@@ -29,6 +31,7 @@ impl FromStr for Command {
             "new" => Ok(Command::New),
             "text" => Ok(Command::Text),
             "voice" => Ok(Command::Voice),
+            "broadcast" => Ok(Command::Broadcast),
             _ => Err(()),
         }
     }
@@ -42,7 +45,11 @@ pub async fn on_receive_command(
 ) {
     let user_request = find_user_by_username(&state_users, msg.chat.username().unwrap());
     let message = msg.text().unwrap();
-    let (_, command) = message.split_at(1);
+    let (_, command_line) = message.split_at(1);
+
+    let substrings: Vec<&str> = command_line.split_whitespace().collect();
+    let command = substrings[0];
+
     let db = DB::new();
 
     if let Some(user) = user_request {
@@ -71,6 +78,32 @@ pub async fn on_receive_command(
                     state.lock().unwrap().users = Mutex::new(users_list);
 
                     send_message(bot, msg.chat.id, "Voice responses enabled").await;
+                }
+
+                Command::Broadcast => {
+                    let text: String = substrings[1..].join(" ");
+
+                    if text.trim().is_empty() {
+                        return;
+                    }
+
+                    let users_list = db.get_users().unwrap();
+                    let mut users_count = 0;
+                    for (_, user) in users_list.iter().enumerate() {
+                        match user.chat_id {
+                            Some(chat_id) => {
+                                send_message(bot.clone(), chat_id, &text).await;
+                                users_count += 1;
+                            }
+                            None => {}
+                        }
+                    }
+                    let message = format!(
+                        "Message successfully broadcasted for {} users!",
+                        users_count
+                    );
+
+                    send_message(bot, msg.chat.id, &message).await;
                 }
             },
             Err(_) => {}

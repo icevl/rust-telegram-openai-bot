@@ -20,3 +20,4 @@ tokio_interval = "0.1.4"
 sentry = { version = "0.31.2", features = ["anyhow", "log", "debug-logs"] }
 textwrap = "0.16.0"
 uuid = { version = "1.3.3", features = ["v4"] }
+lazy_static = "1.4.0"

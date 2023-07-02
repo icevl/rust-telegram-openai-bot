@@ -26,7 +26,7 @@ impl MyGPT {
     pub async fn send_msg(
         &self,
         chat_id: ChatId,
-        user: User,
+        user: &User,
         message: &str,
     ) -> Result<String, Box<dyn Error + Send + Sync>> {
         let db = DB::new();

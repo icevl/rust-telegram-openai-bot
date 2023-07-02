@@ -3,6 +3,7 @@ use crate::{
     gpt::MyGPT,
 };
 use chatgpt::types::Role;
+use lazy_static::lazy_static;
 use reqwest;
 use std::{env, error::Error, fs, sync::Mutex};
 use teloxide::{
@@ -21,10 +22,14 @@ pub struct State {
 }
 
 pub struct TextMessage<'a> {
-    pub user: User,
+    pub user: &'a User,
     pub bot: Bot,
     pub chat_id: ChatId,
     pub message: &'a str,
+}
+
+lazy_static! {
+    static ref DATABASE: DB = DB::new();
 }
 
 pub fn find_user_by_username<'a>(users: &'a Vec<User>, username: &'a str) -> Option<&'a User> {
@@ -129,7 +134,6 @@ pub fn is_command_message(msg: Message) -> bool {
 
 pub async fn proccess_text_message(args: TextMessage<'_>) {
     let gpt_api_key = std::env::var("GPT_KEY").expect("GPT_KEY must be set.");
-    let db = DB::new();
     let gpt = MyGPT::new(&gpt_api_key);
     let cloned_user = args.user.clone();
 
@@ -143,7 +147,7 @@ pub async fn proccess_text_message(args: TextMessage<'_>) {
             let is_voice_response =
                 is_tts_enabled(&cloned_user) && !is_code_listing(content.as_str());
 
-            db.save_message(args.chat_id, Role::Assistant, &content);
+            DATABASE.save_message(args.chat_id, Role::Assistant, &content);
 
             if !is_voice_response {
                 send_message(args.bot, args.chat_id, &content).await;
@@ -228,7 +232,7 @@ pub fn is_code_listing(text: &str) -> bool {
     false
 }
 
-pub async fn proccess_message(user: User, bot: Bot, msg: Message) {
+pub async fn proccess_message(user: &User, bot: Bot, msg: &Message) {
     let voice = msg.voice();
     let message = msg.text();
 
@@ -273,9 +277,19 @@ pub async fn on_receive_message(state_users: Vec<User>, bot: Bot, msg: Message) 
             3000
         );
 
-        proccess_message(user.clone(), bot, msg).await;
-        clear_timer!(typing_interval)
+        proccess_message(user, bot, &msg).await;
+        clear_timer!(typing_interval);
+        update_chat_id(user, msg.chat.id);
     } else {
         send_message(bot, msg.chat.id, "Access denied").await;
+    }
+}
+
+fn update_chat_id(user: &User, chat_id: ChatId) {
+    match user.chat_id {
+        Some(_) => {}
+        None => {
+            DATABASE.set_user_chat_id(&user.user_name, chat_id);
+        }
     }
 }
