@@ -284,7 +284,6 @@ pub async fn on_receive_message(state_users: Vec<User>, bot: Bot, msg: Message) 
             Some(_) => {}
             None => {
                 DATABASE.set_user_chat_id(&user.user_name, msg.chat.id);
-                println!("NEED SET Chat id!");
             }
         }
     } else {

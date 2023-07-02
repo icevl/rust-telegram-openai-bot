@@ -82,7 +82,10 @@ pub async fn on_receive_command(
 
                 Command::Broadcast => {
                     let text: String = substrings[1..].join(" ");
-                    println!("text: {}", text);
+
+                    if text.trim().is_empty() {
+                        return;
+                    }
 
                     let users_list = db.get_users().unwrap();
                     let mut users_count = 0;
@@ -96,7 +99,7 @@ pub async fn on_receive_command(
                         }
                     }
                     let message = format!(
-                        "Message successfully broadcaster for {} users!",
+                        "Message successfully broadcasted for {} users!",
                         users_count
                     );
 
