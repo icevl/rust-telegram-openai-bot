@@ -22,7 +22,7 @@ pub struct State {
 }
 
 pub struct TextMessage<'a> {
-    pub user: User,
+    pub user: &'a User,
     pub bot: Bot,
     pub chat_id: ChatId,
     pub message: &'a str,
@@ -232,7 +232,7 @@ pub fn is_code_listing(text: &str) -> bool {
     false
 }
 
-pub async fn proccess_message(user: User, bot: Bot, msg: Message) {
+pub async fn proccess_message(user: &User, bot: Bot, msg: &Message) {
     let voice = msg.voice();
     let message = msg.text();
 
@@ -277,16 +277,19 @@ pub async fn on_receive_message(state_users: Vec<User>, bot: Bot, msg: Message) 
             3000
         );
 
-        proccess_message(user.clone(), bot, msg.clone()).await;
+        proccess_message(user, bot, &msg).await;
         clear_timer!(typing_interval);
-
-        match user.clone().chat_id {
-            Some(_) => {}
-            None => {
-                DATABASE.set_user_chat_id(&user.user_name, msg.chat.id);
-            }
-        }
+        update_chat_id(user, msg.chat.id);
     } else {
         send_message(bot, msg.chat.id, "Access denied").await;
+    }
+}
+
+fn update_chat_id(user: &User, chat_id: ChatId) {
+    match user.chat_id {
+        Some(_) => {}
+        None => {
+            DATABASE.set_user_chat_id(&user.user_name, chat_id);
+        }
     }
 }
