@@ -14,10 +14,12 @@ struct Message {
     role: String,
 }
 
+
 struct LoadedMessage {
     content: String,
     role: Role,
 }
+
 
 #[derive(Clone, Debug)]
 pub struct User {
@@ -34,6 +36,7 @@ impl DB {
             connection: Arc::new(Mutex::new(Connection::open("database.db").unwrap())),
         }
     }
+
 
     pub async fn history_migration(&self) {
         let result = self.get_connection().execute(
@@ -57,7 +60,9 @@ impl DB {
         }
     }
 
+
     pub async fn users_migration(&self) {
+
         let result = self.get_connection().execute(
             "CREATE TABLE users (
                 id              INTEGER PRIMARY KEY,
@@ -69,6 +74,7 @@ impl DB {
             )",
             (),
         );
+
 
         match result {
             Ok(_) => {

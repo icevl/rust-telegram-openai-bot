@@ -263,8 +263,10 @@ pub async fn on_receive_message(state_users: Vec<User>, bot: Bot, msg: Message) 
     let user_request = find_user_by_username(&state_users, msg.chat.username().unwrap());
     let bot_cloned = bot.clone();
 
+
     if let Some(user) = user_request {
         let is_voice_response_required = is_tts_enabled(&user);
+
 
         let typing_interval = set_interval!(
             move || {
