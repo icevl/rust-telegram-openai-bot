@@ -15,7 +15,7 @@ impl MyGPT {
                 api_key,
                 ModelConfigurationBuilder::default()
                     .temperature(1.0)
-                    .engine(ChatGPTEngine::Gpt35Turbo)
+                    .engine(ChatGPTEngine::Gpt4_0314)
                     .build()
                     .unwrap(),
             )
@@ -54,8 +54,8 @@ impl MyGPT {
 
     fn build_history(history: Vec<ChatMessage>, user: &User) -> Vec<ChatMessage> {
         let mut updated_history = Vec::new();
-        let user_name = user.contact_name.clone();
-        let user_form = user.contact_form.clone();
+        let user_name = user.contact_name.to_string();
+        let user_form = user.contact_form.to_string();
 
         updated_history.push(ChatMessage {
             content: format!(

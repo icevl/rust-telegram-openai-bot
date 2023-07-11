@@ -4,6 +4,7 @@ use crate::{
 };
 use chatgpt::types::Role;
 use lazy_static::lazy_static;
+use log::info;
 use reqwest;
 use std::{env, error::Error, fs, sync::Mutex};
 use teloxide::{
@@ -157,6 +158,7 @@ pub async fn proccess_text_message(args: TextMessage<'_>) {
             send_tts_multi_parts(args.bot.clone(), args.chat_id, &content).await;
         }
         Err(error) => {
+            info!("Error: {}", error);
             send_message(args.bot, args.chat_id, "I broke down. I feel bad").await;
 
             let error_ref: &dyn Error = &*error;
